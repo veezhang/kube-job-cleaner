@@ -1,0 +1,82 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: kube-job-cleaner
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: kube-job-cleaner
+  namespace: kube-job-cleaner
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRole
+metadata:
+  name: kube-job-cleaner
+rules:
+- apiGroups:
+  - "batch"
+  - "extensions"
+  resources:
+  - jobs
+  verbs:
+  - get
+  - list
+  - watch
+  - delete
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRoleBinding
+metadata:
+  name: kube-job-cleaner
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kube-job-cleaner
+subjects:
+- kind: ServiceAccount
+  name: kube-job-cleaner
+  namespace: kube-job-cleaner
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: kube-job-cleaner
+  name: kube-job-cleaner
+  namespace: kube-job-cleaner
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kube-job-cleaner
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 1
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app: kube-job-cleaner
+    spec:
+      serviceAccountName: kube-job-cleaner
+      containers:
+      - name: kube-job-cleaner
+        image: veezhang/kube-job-cleaner
+        args:
+        - --job-namespace=
+        # - --job-namespace=default
+        - --job-check-interval=60
+        - --job-resync-period=60
+        - --dry-run=false
+        - --v=3
+        imagePullPolicy: Always
+        name: kube-job-cleaner
+        resources:
+          requests:
+            cpu: 50m
+            memory: 50Mi
+          limits:
+            cpu: 50m
+            memory: 50Mi
